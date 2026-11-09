@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Blantyre Water Pipe Network – Shortest Path Tester</title>
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial,Helvetica,sans-serif;color:#1a1a1a;background:#f4f6f9;line-height:1.45}
+header{background:#1f4e78;color:#fff;padding:22px 28px}
+header h1{margin:0 0 4px;font-size:26px}
+header p{margin:0;opacity:.9;font-size:14px}
+main{max-width:1180px;margin:0 auto;padding:20px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media(max-width:860px){.grid{grid-template-columns:1fr}}
+.card{background:#fff;border:1px solid #d9dee5;border-radius:8px;padding:18px;margin-bottom:18px}
+h2{margin:0 0 12px;font-size:19px}
+label{display:block;font-size:13px;font-weight:bold;margin:10px 0 4px}
+select{width:100%;padding:9px;border:1px solid #b8c0cc;border-radius:6px;font-size:15px;background:#fff}
+button{width:100%;margin-top:14px;padding:11px;border:0;border-radius:6px;background:#1f4e78;color:#fff;font-size:15px;font-weight:bold;cursor:pointer}
+button:hover{background:#163a5a}
+.big{font-size:32px;font-weight:bold;color:#1f4e78;margin:16px 0 4px}
+.route{font-size:15px}
+.sum{font-size:14px;color:#444;margin-top:6px}
+.err{color:#b00020;font-weight:bold;margin-top:14px}
+table{width:100%;border-collapse:collapse;font-size:13.5px;margin-top:10px}
+th,td{border:1px solid #c5ccd6;padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#eef2f7}
+.pass{color:#1b7a2f;font-weight:bold}.fail{color:#b00020;font-weight:bold}
+.scroll{max-height:420px;overflow:auto}
+.legend{font-size:13px;color:#444;margin-bottom:6px}
+.legend i{display:inline-block;width:26px;height:4px;vertical-align:middle;margin:0 5px 0 12px}
+svg{width:100%;height:auto;background:#fff}
+.chk{display:flex;align-items:center;gap:8px;font-weight:normal;margin-top:12px}
+.chk input{width:auto}
+.summary{font-size:16px;font-weight:bold;margin:12px 0 4px}
+</style>
+</head>
+<body>
+<header>
+<h1>Blantyre Water Pipe Network</h1>
+<p>Data Structures and Algorithms Assignment 2026 · Shortest path with Dijkstra’s algorithm · Weights are in minutes</p>
+</header>
+<main>
+<div class="grid">
+ <section class="card">
+  <h2>Shortest route (Dijkstra)</h2>
+  <label for="src">Starting place</label><select id="src"></select>
+  <label for="dst">Destination</label><select id="dst"></select>
+  <label class="chk"><input type="checkbox" id="steps"> Show how Dijkstra works, step by step</label>
+  <button id="go">Find route</button>
+  <div id="out"></div>
+ </section>
+ <section class="card">
+  <h2>Distances to all 22 places</h2>
+  <label for="src2">Source</label><select id="src2"></select>
+  <button id="all">Calculate all distances</button>
+  <div class="scroll" id="allOut"></div>
+ </section>
+</div>
+
+<section class="card">
+ <h2>Graph drawing</h2>
+ <div class="legend"><i style="background:#9aa5b4"></i>Pipe, time in minutes<i style="background:#d62828"></i>Shortest route</div>
+ <svg id="svg" viewBox="100 60 850 1020" role="img" aria-label="Graph of the Blantyre water pipe network"></svg>
+ <p class="sum">Same layout and weights as the hand-drawn graph. The graph is undirected and weighted: 22 places and 37 pipes.</p>
+</section>
+
+<section class="card">
+ <h2>Browser tests</h2>
+ <p>These tests check the shortest paths. The program’s answers are compared with known results, with a second method (Floyd–Warshall) for every pair of places, and with the total of the pipe weights along each route.</p>
+ <button id="run">Run tests</button>
+ <div id="testOut"></div>
+</section>
+</main>
+
+<script>
+//CORE_START
+const NAMES=["Bangwe","Blantyre CBD","Chichiri Reservoir","Chigumula","Chileka","Chilomoni","Chirimba","Chitawira","Kameza","Kanjedza","Limbe","Manase","Mount Pleasant","Mudi Reservoir","Namiwawa","Nancholi","Naperi","Ndirande","QECH","Soche","Sunnyside","Zingwangwa"];
+const POS={"Nancholi":[540,110],"Chilomoni":[845,105],"Chileka":[322,148],"Ndirande":[698,185],"Chirimba":[160,285],"Limbe":[300,345],"Chitawira":[505,298],"Manase":[897,355],"Blantyre CBD":[677,420],"QECH":[418,433],"Naperi":[165,483],"Sunnyside":[493,562],"Chigumula":[212,623],"Mudi Reservoir":[535,665],"Chichiri Reservoir":[868,598],"Bangwe":[358,725],"Namiwawa":[645,808],"Soche":[458,893],"Mount Pleasant":[785,915],"Zingwangwa":[272,943],"Kameza":[475,1025],"Kanjedza":[710,1015]};
+const RAW="Chichiri Reservoir|Blantyre CBD|8;Chichiri Reservoir|Mount Pleasant|7;Mudi Reservoir|Blantyre CBD|10;Mudi Reservoir|Namiwawa|6;Mudi Reservoir|Sunnyside|7;Blantyre CBD|Sunnyside|5;Blantyre CBD|Namiwawa|6;Blantyre CBD|Mount Pleasant|9;Blantyre CBD|QECH|6;Blantyre CBD|Ndirande|12;Blantyre CBD|Limbe|15;Blantyre CBD|Manase|10;Namiwawa|Mount Pleasant|5;Sunnyside|QECH|4;QECH|Soche|6;Soche|Mount Pleasant|8;Ndirande|Manase|7;Ndirande|Chilomoni|10;Ndirande|Chitawira|8;Manase|Chilomoni|6;Chitawira|Limbe|6;Chitawira|Nancholi|5;Nancholi|Limbe|7;Nancholi|Chilomoni|9;Limbe|Chirimba|8;Limbe|Naperi|9;Limbe|Chigumula|12;Limbe|Bangwe|14;Limbe|Chileka|20;Chirimba|Chileka|22;Naperi|Chigumula|6;Bangwe|Chigumula|7;Bangwe|Zingwangwa|8;Zingwangwa|Soche|12;Soche|Kanjedza|10;Kanjedza|Kameza|8;Kameza|Zingwangwa|10";
+const EDGES=RAW.split(";").map(s=>{const p=s.split("|");return [NAMES.indexOf(p[0]),NAMES.indexOf(p[1]),Number(p[2])]});
+
+function buildAdj(n,edges){const a=Array.from({length:n},()=>[]);for(const [u,v,w] of edges){a[u].push([v,w]);a[v].push([u,w]);}return a;}
+function validate(n,edges){for(const [u,v,w] of edges){if(!Number.isFinite(w))return "Invalid weight format";if(w<0)return "Negative weight not allowed";if(u<0||v<0||u>=n||v>=n)return "Unknown place";}return null;}
+function dijkstra(n,adj,s){
+ const d=Array(n).fill(Infinity),p=Array(n).fill(-1),done=Array(n).fill(false),steps=[];d[s]=0;
+ for(let k=0;k<n;k++){
+  let u=-1;for(let i=0;i<n;i++)if(!done[i]&&(u<0||d[i]<d[u]))u=i;
+  if(u<0||d[u]===Infinity)break;
+  done[u]=true;const upd=[];
+  for(const [v,w] of adj[u])if(!done[v]&&d[u]+w<d[v]){d[v]=d[u]+w;p[v]=u;upd.push([v,d[v]]);}
+  steps.push({u,dist:d[u],upd,nb:adj[u].map(([v])=>[v,d[v]])});
+ }
+ return {d,p,steps};
+}
+function pathTo(p,t){const r=[];for(let x=t;x!==-1;x=p[x])r.push(x);return r.reverse();}
+function floyd(n,edges){
+ const D=Array.from({length:n},(_,i)=>Array.from({length:n},(_,j)=>i===j?0:Infinity));
+ for(const [u,v,w] of edges){if(w<D[u][v]){D[u][v]=w;D[v][u]=w;}}
+ for(let k=0;k<n;k++)for(let i=0;i<n;i++)for(let j=0;j<n;j++)if(D[i][k]+D[k][j]<D[i][j])D[i][j]=D[i][k]+D[k][j];
+ return D;
+}
+const WT={};for(const [u,v,w] of EDGES){WT[Math.min(u,v)+"-"+Math.max(u,v)]=w;}
+const wOf=(a,b)=>WT[Math.min(a,b)+"-"+Math.max(a,b)];
+const routeWeights=path=>path.slice(1).map((v,i)=>wOf(path[i],v));
+const sum=a=>a.reduce((x,y)=>x+y,0);
+
+function runTests(){
+ const n=NAMES.length,adj=buildAdj(n,EDGES),id=x=>NAMES.indexOf(x),R=[];
+ const add=(t,input,exp,got,ok)=>R.push({t,input,exp,got,ok});
+ const label=p=>p.map(i=>NAMES[i]).join(" → ");
+ function route(a,b,expD,expR,title){
+  const r=dijkstra(n,adj,id(a)),p=pathTo(r.p,id(b));
+  add(title,a+" to "+b,expR+"; "+expD+" minutes",label(p)+"; "+r.d[id(b)]+" minutes",r.d[id(b)]===expD&&label(p)===expR);
+ }
+ route("Chichiri Reservoir","Kameza",33,"Chichiri Reservoir → Mount Pleasant → Soche → Kanjedza → Kameza","Normal route");
+ route("Blantyre CBD","Blantyre CBD",0,"Blantyre CBD","Source equals destination");
+ route("Mudi Reservoir","QECH",11,"Mudi Reservoir → Sunnyside → QECH","Different source");
+ route("Chichiri Reservoir","Chileka",43,"Chichiri Reservoir → Blantyre CBD → Limbe → Chileka","Distant place");
+ add("Unknown source","Unknown to Kameza","Error: place does not exist",id("Unknown")===-1?"Error: place does not exist":"Found",id("Unknown")===-1);
+ const neg=validate(3,[[0,1,5],[1,2,-3]]);
+ add("Negative pipe weight","A–B = 5; B–C = -3","Graph rejected",neg||"Accepted",neg==="Negative weight not allowed");
+ const bad=validate(2,[[0,1,Number("five")]]);
+ add("Invalid weight format","A–B = five","Invalid weight error",bad||"Accepted",bad==="Invalid weight format");
+ const dc=dijkstra(4,buildAdj(4,[[0,1,4],[2,3,2]]),0);
+ add("Disconnected graph","A–B = 4; C–D = 2; source A, target D","D is unreachable",dc.d[3]===Infinity?"D is unreachable":"Reached",dc.d[3]===Infinity);
+ const up=dijkstra(3,buildAdj(3,[[0,1,4],[1,2,3],[0,2,10]]),0),upP=pathTo(up.p,2).join(",");
+ add("Distance update","A–B = 4; B–C = 3; A–C = 10","A → B → C; 7 (improves 10)",(upP==="0,1,2"?"A → B → C":upP)+"; "+up.d[2],up.d[2]===7&&upP==="0,1,2");
+ const FW=floyd(n,EDGES),all=[];for(let i=0;i<n;i++)all.push(dijkstra(n,adj,i));
+ let bad1=0,bad2=0,bad3=0,bad4=0,fin=0;
+ for(let i=0;i<n;i++)for(let j=0;j<n;j++){
+  if(all[i].d[j]!==FW[i][j])bad1++;
+  if(all[i].d[j]!==all[j].d[i])bad2++;
+  if(sum(routeWeights(pathTo(all[i].p,j)))!==all[i].d[j])bad3++;
+  if(all[i].d[j]===Infinity)fin++;
+  for(let k=0;k<n;k++)if(all[i].d[j]>all[i].d[k]+all[k].d[j])bad4++;
+ }
+ const T=n*n;
+ add("Dijkstra equals Floyd–Warshall","All "+T+" pairs of places","0 differences",bad1+" differences",bad1===0);
+ add("Distances are symmetric","All "+T+" pairs of places","distance(A,B) = distance(B,A)",bad2+" differences",bad2===0);
+ add("Route weights add up","All "+T+" routes","Sum of pipe weights = reported distance",bad3+" differences",bad3===0);
+ add("No shorter route through a third place","All "+(T*n)+" triples","distance(A,C) ≤ distance(A,B) + distance(B,C)",bad4+" violations",bad4===0);
+ add("Graph is connected","All "+T+" pairs of places","Every place reachable",fin+" unreachable pairs",fin===0);
+ return R;
+}
+//CORE_END
+
+const $=id=>document.getElementById(id);
+const n=NAMES.length,ADJ=buildAdj(n,EDGES);
+const opts=NAMES.map((nm,i)=>'<option value="'+i+'">'+(i+1)+'. '+nm+'</option>').join("");
+["src","dst","src2"].forEach(k=>$(k).innerHTML=opts);
+$("src").value=NAMES.indexOf("Chichiri Reservoir");$("dst").value=NAMES.indexOf("Kameza");$("src2").value=NAMES.indexOf("Chichiri Reservoir");
+const label=p=>p.map(i=>NAMES[i]).join(" → ");
+
+function draw(path){
+ const on=new Set();if(path)for(let i=1;i<path.length;i++)on.add(Math.min(path[i-1],path[i])+"-"+Math.max(path[i-1],path[i]));
+ const inP=new Set(path||[]);let s="";
+ const off=EDGES.filter(e=>!on.has(Math.min(e[0],e[1])+"-"+Math.max(e[0],e[1])));
+ const hot=EDGES.filter(e=>on.has(Math.min(e[0],e[1])+"-"+Math.max(e[0],e[1])));
+ for(const [list,col,sw] of [[off,"#9aa5b4",1.6],[hot,"#d62828",4.5]])
+  for(const [u,v] of list){const a=POS[NAMES[u]],b=POS[NAMES[v]];s+='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+b[0]+'" y2="'+b[1]+'" stroke="'+col+'" stroke-width="'+sw+'"/>';}
+ for(const [u,v,w] of EDGES){const a=POS[NAMES[u]],b=POS[NAMES[v]],h=on.has(Math.min(u,v)+"-"+Math.max(u,v));
+  s+='<text x="'+((a[0]+b[0])/2)+'" y="'+((a[1]+b[1])/2+5)+'" text-anchor="middle" font-size="15" font-weight="bold" fill="'+(h?"#d62828":"#333")+'" stroke="#fff" stroke-width="4" paint-order="stroke">'+w+'</text>';}
+ NAMES.forEach((nm,i)=>{const p=POS[nm],hit=inP.has(i),right=p[0]>800;
+  s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="15" fill="'+(hit?"#d62828":"#fff")+'" stroke="'+(hit?"#d62828":"#1f4e78")+'" stroke-width="2.5"/>'
+   +'<text x="'+p[0]+'" y="'+(p[1]+5)+'" text-anchor="middle" font-size="13" font-weight="bold" fill="'+(hit?"#fff":"#1f4e78")+'">'+(i+1)+'</text>'
+   +'<text x="'+(p[0]+(right?-20:20))+'" y="'+(p[1]-14)+'" text-anchor="'+(right?"end":"start")+'" font-size="15" fill="#111" stroke="#fff" stroke-width="4" paint-order="stroke">'+nm+'</text>';});
+ $("svg").innerHTML=s;
+}
+
+function find(){
+ const a=+$("src").value,b=+$("dst").value,r=dijkstra(n,ADJ,a);
+ if(r.d[b]===Infinity){$("out").innerHTML='<div class="err">No route exists between these places.</div>';draw(null);return;}
+ const p=pathTo(r.p,b),ws=routeWeights(p);
+ let h='<div class="big">'+r.d[b]+' minutes</div><div class="route">'+label(p)+'</div>';
+ h+='<div class="sum">Check: '+(ws.length?ws.join(" + ")+" = "+sum(ws):"0")+' minutes</div>';
+ if($("steps").checked){
+  h+='<div class="scroll"><table><tr><th>Step</th><th>Place visited</th><th>Distance (minutes)</th><th>Updates to neighbours</th></tr>';
+  r.steps.forEach((s,i)=>{
+   const txt=s.upd.length?s.upd.map(([v,d])=>NAMES[v]+" = "+d).join("; "):s.nb.map(([v,d])=>NAMES[v]+" = "+d).join("; ")+" (none improved)";
+   h+='<tr><td>'+(i+1)+'</td><td>'+NAMES[s.u]+'</td><td>'+s.dist+'</td><td>'+txt+'</td></tr>';});
+  h+='</table></div>';
+ }
+ $("out").innerHTML=h;draw(p);
+}
+function showAll(){
+ const a=+$("src2").value,r=dijkstra(n,ADJ,a);
+ let h='<table><tr><th>Number</th><th>Destination</th><th>Minutes</th><th>Shortest route</th></tr>';
+ NAMES.map((nm,i)=>i).sort((x,y)=>r.d[x]-r.d[y]).forEach(i=>{h+='<tr><td>'+(i+1)+'</td><td>'+NAMES[i]+'</td><td>'+r.d[i]+'</td><td>'+label(pathTo(r.p,i))+'</td></tr>';});
+ $("allOut").innerHTML=h+'</table>';
+}
+function tests(){
+ const R=runTests(),ok=R.filter(x=>x.ok).length;
+ let h='<div class="summary '+(ok===R.length?"pass":"fail")+'">'+ok+' of '+R.length+' tests passed</div><div class="scroll"><table><tr><th>Number</th><th>Test</th><th>Input</th><th>Expected output</th><th>Actual output</th><th>Result</th></tr>';
+ R.forEach((x,i)=>{h+='<tr><td>'+(i+1)+'</td><td>'+x.t+'</td><td>'+x.input+'</td><td>'+x.exp+'</td><td>'+x.got+'</td><td class="'+(x.ok?"pass":"fail")+'">'+(x.ok?"Passed":"Failed")+'</td></tr>';});
+ $("testOut").innerHTML=h+'</table></div>';
+}
+$("go").onclick=find;$("all").onclick=showAll;$("run").onclick=tests;
+draw(null);find();
+</script>
+</body>
+</html>
